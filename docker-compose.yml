@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # --- База Данных ---
+  postgres:
+    image: postgres:15
+    container_name: facepass_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: facepass_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d facepass_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  core-service:
+    build: ./core_service
+    container_name: facepass_core
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: facepass_db
+    command: sh -c "alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload"
+    volumes:
+      - ./core_service:/app
+
+volumes:
+  postgres_data:
